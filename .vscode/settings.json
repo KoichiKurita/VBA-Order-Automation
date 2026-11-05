@@ -1,0 +1,6 @@
+{
+  "files.associations": { "*.bas": "vba", "*.cls": "vba", "*.frm": "vba", "*.vbs": "vba" },
+  "[vba]": { "files.encoding": "shiftjis", "files.eol": "\r\n" },
+  "git.autofetch": true,
+  "cSpell.ignorePaths": ["src/**"]
+}

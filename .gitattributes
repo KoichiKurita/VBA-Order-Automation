@@ -1,0 +1,9 @@
+* text=auto
+# VBEのエクスポートはShift_JIS(CP932)+CRLF。リポジトリ内はUTF-8で保存しGitHub上の文字化けを防ぐ
+*.bas  text eol=crlf working-tree-encoding=CP932
+*.cls  text eol=crlf working-tree-encoding=CP932
+*.frm  text eol=crlf working-tree-encoding=CP932
+*.vbs  text eol=crlf working-tree-encoding=CP932
+*.frx  binary
+*.xlsm binary
+*.xlsx binary
