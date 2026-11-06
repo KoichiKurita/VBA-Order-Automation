@@ -7,3 +7,9 @@
 *.frx  binary
 *.xlsm binary
 *.xlsx binary
+
+# GitHubの言語判定をVBAに固定（.clsがTeX、.basがBASICと誤判定されるのを防ぐ）
+*.bas linguist-language=VBA
+*.cls linguist-language=VBA
+*.frm linguist-language=VBA
+docs/** linguist-documentation
