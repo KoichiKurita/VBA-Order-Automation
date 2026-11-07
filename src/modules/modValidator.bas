@@ -88,6 +88,7 @@ Public Function ValidateValue(ByRef def As ColumnDef, ByVal raw As String, ByRef
     '--- 型
     Select Case def.dataType
         Case "TEXT"
+            raw = Replace(Replace(raw, vbCrLf, vbLf), vbCr, vbLf)   ' セル内改行はLFに統一
             If def.MaxLength > 0 And Len(raw) > def.MaxLength Then
                 ValidateValue = def.MaxLength & "文字以内で入力してください（" & Len(raw) & "文字）"
                 Exit Function
