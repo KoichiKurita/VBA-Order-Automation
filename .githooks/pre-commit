@@ -1,0 +1,11 @@
+#!/bin/sh
+# OrderTool.xlsm を変更したのに src/ が更新されていないコミットを防ぐ
+# （ExportAllModules の実行忘れ対策。意図的な場合は git commit --no-verify）
+staged=$(git diff --cached --name-only)
+if echo "$staged" | grep -q '^OrderTool.xlsm$'; then
+  if ! echo "$staged" | grep -q '^src/'; then
+    echo "ERROR: OrderTool.xlsm が変更されていますが、src/ に変更がありません。" >&2
+    echo "       Excel で ExportAllModules を実行し、保存して閉じてから git add してください。" >&2
+    exit 1
+  fi
+fi
