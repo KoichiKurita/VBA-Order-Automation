@@ -19,3 +19,6 @@ docs/** linguist-documentation
 *.cls linguist-language=VBA
 *.frm linguist-language=VBA
 docs/** linguist-documentation
+
+# テストデータはバイト単位で保持（文字コード・BOM・改行コードがテスト条件のため）
+*.csv -text

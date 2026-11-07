@@ -13,9 +13,13 @@ Public Const APP_ERR_BASE As Long = vbObjectError + 1000
 Public Const APP_ERR_MAX As Long = vbObjectError + 8999
 
 ' 業務エラーコード定義
+'   10xx: 設定  11xx: ファイル  12xx: データ検証  13xx: 権限
 Public Const ERR_CONFIG_NOT_FOUND As Long = vbObjectError + 1001
 Public Const ERR_FILE_NOT_FOUND As Long = vbObjectError + 1101
+Public Const ERR_CSV_FORMAT As Long = vbObjectError + 1102      ' Phase 2 追加
+Public Const ERR_FILE_TOO_LARGE As Long = vbObjectError + 1103  ' Phase 2 追加
 Public Const ERR_VALIDATION As Long = vbObjectError + 1201
+Public Const ERR_SCHEMA As Long = vbObjectError + 1202          ' Phase 2 追加
 Public Const ERR_PERMISSION As Long = vbObjectError + 1301
 
 Public Sub RaiseAppError(ByVal code As Long, ByVal source As String, ByVal message As String)
