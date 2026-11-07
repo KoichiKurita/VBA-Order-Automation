@@ -15,7 +15,7 @@ Option Explicit
 '==========================================================
 
 Public filePath As String
-Public EncodingName As String
+Public encodingName As String
 Public TotalRows As Long          ' データ行数（ヘッダーを除く）
 Public ValidRows As Long          ' 検証OKの行数
 Public ErrorRows As Long          ' エラーのあった行数
@@ -27,7 +27,7 @@ Public ElapsedSeconds As Double
 Public Function summary() As String
     Dim s As String
     s = "ファイル　　：" & Mid$(filePath, InStrRev(filePath, "\") + 1) & vbCrLf & _
-        "文字コード　：" & EncodingName & vbCrLf & _
+        "文字コード　：" & encodingName & vbCrLf & _
         "データ件数　：" & Format$(TotalRows, "#,##0") & " 件" & vbCrLf & _
         "取込件数　　：" & Format$(ImportedRows, "#,##0") & " 件" & vbCrLf & _
         "エラー行数　：" & Format$(ErrorRows, "#,##0") & " 件" & vbCrLf

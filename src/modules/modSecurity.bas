@@ -7,6 +7,7 @@ Option Explicit
 '   ・取込時 : 数式として解釈され得る値を検出し、Config!CsvInjectionPolicy に従い
 '              REJECT（エラー行にする）または SANITIZE（文字列として取込＋WARNログ）
 '   ・書込時 : 文字列項目は必ず ToSafeCellText を通し、数式として評価させない
+'   ・CSV出力: ToCsvField で数式様の値に ' を付け、RFC 4180 のエスケープを行う（Phase 3）
 '==========================================================
 
 ' 数式として解釈され得る先頭文字か（全角も含む）
@@ -28,5 +29,30 @@ Public Function ToSafeCellText(ByVal s As String) As String
     Else
         ToSafeCellText = "'" & s
     End If
+End Function
+
+' CSV出力用の1フィールドに変換する（Phase 3 追加）
+'   ・文字列が数式様なら先頭に ' を付ける（出力したCSVを開いた人の環境で数式を実行させない）
+'   ・カンマ / ダブルクォート / 改行を含む場合は "" で囲み、" を "" にエスケープ
+'   ・数値は型のまま出力するため、負数 "-5" に ' は付かない
+Public Function ToCsvField(ByVal v As Variant) As String
+    Dim s As String
+
+    Select Case VarType(v)
+        Case vbEmpty, vbNull
+            s = ""
+        Case vbDate
+            s = Format$(v, "yyyy/mm/dd")
+        Case vbString
+            s = v
+            If IsFormulaLike(s) Then s = "'" & s
+        Case Else
+            s = CStr(v)
+    End Select
+
+    If InStr(s, ",") > 0 Or InStr(s, """") > 0 Or InStr(s, vbCr) > 0 Or InStr(s, vbLf) > 0 Then
+        s = """" & Replace(s, """", """""") & """"
+    End If
+    ToCsvField = s
 End Function
 
