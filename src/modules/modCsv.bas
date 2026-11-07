@@ -23,18 +23,18 @@ Private mFieldCount As Long
 '----------------------------------------------------------
 ' ファイルを読み込み、文字列で返す。encodingName に判定結果を返す
 '----------------------------------------------------------
-Public Function ReadTextFile(ByVal filePath As String, ByRef EncodingName As String) As String
+Public Function ReadTextFile(ByVal filePath As String, ByRef encodingName As String) As String
     Const PROC As String = "modCsv.ReadTextFile"
     Dim bytes() As Byte
     Dim text As String
 
     bytes = ReadAllBytes(filePath)
-    EncodingName = DetectEncoding(bytes)
-    text = DecodeBytes(bytes, EncodingName)
+    encodingName = DetectEncoding(bytes)
+    text = DecodeBytes(bytes, encodingName)
 
     If Left$(text, 1) = ChrW$(&HFEFF) Then text = Mid$(text, 2)   ' BOMを除去
 
-    LogDebug PROC, "文字コード判定: " & EncodingName & " / " & (UBound(bytes) + 1) & " bytes"
+    LogDebug PROC, "文字コード判定: " & encodingName & " / " & (UBound(bytes) + 1) & " bytes"
     ReadTextFile = text
 End Function
 
@@ -286,5 +286,36 @@ Private Sub EndRow()
     If mRowCount > UBound(mRows) Then ReDim Preserve mRows(1 To UBound(mRows) * 2)
     mRows(mRowCount) = arr
     mFieldCount = 0
+End Sub
+
+'----------------------------------------------------------
+' テキストファイルを UTF-8 で書き出す（Phase 3 追加）
+'   withBom = True : BOM付き（Excelでダブルクリックしても文字化けしない）
+'   withBom = False: BOMなし（Git・他システム連携向け）
+'----------------------------------------------------------
+Public Sub WriteTextFile(ByVal filePath As String, ByVal text As String, Optional ByVal withBom As Boolean = True)
+    Dim stm As Object
+    Dim outStm As Object
+
+    Set stm = CreateObject("ADODB.Stream")
+    stm.Type = 2                ' adTypeText
+    stm.charset = "utf-8"       ' ADODB.Stream は UTF-8 の先頭に BOM(3バイト)を付ける
+    stm.Open
+    stm.WriteText text
+
+    If withBom Then
+        stm.SaveToFile filePath, 2          ' adSaveCreateOverWrite
+    Else
+        stm.Position = 0
+        stm.Type = 1            ' adTypeBinary
+        stm.Position = 3        ' BOM を読み飛ばす
+        Set outStm = CreateObject("ADODB.Stream")
+        outStm.Type = 1
+        outStm.Open
+        stm.CopyTo outStm
+        outStm.SaveToFile filePath, 2
+        outStm.Close
+    End If
+    stm.Close
 End Sub
 

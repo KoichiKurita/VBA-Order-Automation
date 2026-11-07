@@ -101,7 +101,7 @@ Public Function ImportOrdersFromFile(ByVal filePath As String) As clsImportResul
     '--- 2. 読込・パース
     guard.ShowProgress "CSVを読み込んでいます..."
     text = ReadTextFile(filePath, enc)
-    res.EncodingName = enc
+    res.encodingName = enc
     data = ParseCsv(text, fieldCounts)
     text = vbNullString                  ' 大きな文字列のメモリを解放
 
