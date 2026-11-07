@@ -64,7 +64,7 @@ Private Sub LoadConfig()
     Set lo = ThisWorkbook.Worksheets(CONFIG_SHEET).ListObjects(CONFIG_TABLE)
     If lo.DataBodyRange Is Nothing Then Exit Sub
 
-    data = lo.DataBodyRange.Value   ' 配列で一括取得（セル単位アクセスを避ける）
+    data = lo.DataBodyRange.value   ' 配列で一括取得（セル単位アクセスを避ける）
     For i = 1 To UBound(data, 1)
         k = Trim$(CStr(data(i, 1)))
         If Len(k) > 0 Then mCache(k) = data(i, 2)

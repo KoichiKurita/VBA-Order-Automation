@@ -23,18 +23,18 @@ Private mFieldCount As Long
 '----------------------------------------------------------
 ' ファイルを読み込み、文字列で返す。encodingName に判定結果を返す
 '----------------------------------------------------------
-Public Function ReadTextFile(ByVal filePath As String, ByRef encodingName As String) As String
+Public Function ReadTextFile(ByVal filePath As String, ByRef EncodingName As String) As String
     Const PROC As String = "modCsv.ReadTextFile"
     Dim bytes() As Byte
     Dim text As String
 
     bytes = ReadAllBytes(filePath)
-    encodingName = DetectEncoding(bytes)
-    text = DecodeBytes(bytes, encodingName)
+    EncodingName = DetectEncoding(bytes)
+    text = DecodeBytes(bytes, EncodingName)
 
     If Left$(text, 1) = ChrW$(&HFEFF) Then text = Mid$(text, 2)   ' BOMを除去
 
-    LogDebug PROC, "文字コード判定: " & encodingName & " / " & (UBound(bytes) + 1) & " bytes"
+    LogDebug PROC, "文字コード判定: " & EncodingName & " / " & (UBound(bytes) + 1) & " bytes"
     ReadTextFile = text
 End Function
 
