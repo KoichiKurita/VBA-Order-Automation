@@ -6,6 +6,7 @@ Option Explicit
 '   ・システムエラー（想定外）→ 汎用メッセージのみ表示し、詳細はログへ
 '     （内部情報をユーザー画面に出さない＝情報漏えい対策）
 '   ・どちらも「問い合わせ番号（実行ID）」を表示し、ログと突合できる
+'   ・バッチモード（無人実行）では画面を一切出さない（MsgBox で処理が止まるのを防ぐ。Phase 5）
 '==========================================================
 
 ' 業務エラーコード範囲
@@ -21,6 +22,18 @@ Public Const ERR_FILE_TOO_LARGE As Long = vbObjectError + 1103  ' Phase 2 追加
 Public Const ERR_VALIDATION As Long = vbObjectError + 1201
 Public Const ERR_SCHEMA As Long = vbObjectError + 1202          ' Phase 2 追加
 Public Const ERR_PERMISSION As Long = vbObjectError + 1301
+Public Const ERR_BATCH As Long = vbObjectError + 1401           ' Phase 5 追加
+
+Private mBatchMode As Boolean
+
+' バッチモードの切替（無人実行の間だけ True）
+Public Sub SetBatchMode(ByVal enabled As Boolean)
+    mBatchMode = enabled
+End Sub
+
+Public Function IsBatchMode() As Boolean
+    IsBatchMode = mBatchMode
+End Function
 
 Public Sub RaiseAppError(ByVal code As Long, ByVal source As String, ByVal message As String)
     Err.Raise code, source, message
@@ -41,6 +54,7 @@ Public Sub HandleError(ByVal source As String, Optional ByVal notifyUser As Bool
     LogError source, "Err=" & errNum & " Src=" & errSrc & " Desc=" & errDesc
 
     If Not notifyUser Then Exit Sub
+    If mBatchMode Then Exit Sub          ' 無人実行中はダイアログを出さない（ログには記録済み）
 
     If IsAppError(errNum) Then
         userMsg = errDesc

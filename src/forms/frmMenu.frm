@@ -165,15 +165,15 @@ Private Sub RefreshState()
     isAdmin = HasRoleFor(role, actAdmin) And Not mBusy
     lblUser.Caption = "ユーザー：" & CurrentUserName() & "　　ロール：" & RoleName(role)
 
-    btnImport.Enabled = HasRoleFor(role, actImport) And Not mBusy
-    btnReport.Enabled = HasRoleFor(role, actReport) And Not mBusy
-    btnUndo.Enabled = HasRoleFor(role, actUndoImport) And Not mBusy
-    btnEditSettings.Enabled = isAdmin
-    btnUsers.Enabled = isAdmin
-    btnProtect.Enabled = isAdmin
-    btnVerify.Enabled = isAdmin
-    btnOpenLog.Enabled = isAdmin
-    btnClose.Enabled = Not mBusy
+    btnImport.enabled = HasRoleFor(role, actImport) And Not mBusy
+    btnReport.enabled = HasRoleFor(role, actReport) And Not mBusy
+    btnUndo.enabled = HasRoleFor(role, actUndoImport) And Not mBusy
+    btnEditSettings.enabled = isAdmin
+    btnUsers.enabled = isAdmin
+    btnProtect.enabled = isAdmin
+    btnVerify.enabled = isAdmin
+    btnOpenLog.enabled = isAdmin
+    btnClose.enabled = Not mBusy
 
     If Not IsSecuritySetUp() Then
         lblStatus.Caption = "セキュリティが未設定です。管理者が SetupSecurity を実行してください。"
