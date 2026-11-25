@@ -23,6 +23,7 @@ Public ImportedRows As Long       ' 実際に取り込んだ行数
 Public FormulaLikeCount As Long   ' 数式様の値を文字列として取り込んだ件数
 Public Committed As Boolean       ' Ordersへ書き込んだか
 Public ElapsedSeconds As Double
+Public TimingDetail As String     ' 処理ごとの時間（性能分析用）
 
 Public Function summary() As String
     Dim s As String

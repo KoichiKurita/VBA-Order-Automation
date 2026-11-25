@@ -44,7 +44,7 @@ Private Sub Test_ParseCsv()
     d = ParseCsv("""a,b"",""x""""y""" & vbLf & """複数" & vbCrLf & "行"",z", fc)
     AssertEqual "CSV: 引用符内のカンマ", "a,b", d(1, 1)
     AssertEqual "CSV: エスケープされた引用符", "x""y", d(1, 2)
-    AssertEqual "CSV: 引用符内の改行", "複数" & vbCrLf & "行", d(2, 1)
+    AssertEqual "CSV: 引用符内の改行（LFに統一）", "複数" & vbLf & "行", d(2, 1)
     AssertEqual "CSV: LF改行の行数", 2, UBound(d, 1)
 
     d = ParseCsv("a,b" & vbCrLf & vbCrLf & "1,", fc)
@@ -79,8 +79,8 @@ Private Sub Test_ValidateValue()
     Dim v As Variant
 
     ' 整数
-    def.Name = "数量": def.Required = True: def.dataType = "INTEGER"
-    def.HasMin = True: def.MinValue = 1: def.HasMax = True: def.MaxValue = 9999
+    def.Name = "数量": def.required = True: def.dataType = "INTEGER"
+    def.hasMin = True: def.MinValue = 1: def.hasMax = True: def.MaxValue = 9999
     AssertEqual "整数: 正常", "", ValidateValue(def, "10", v)
     AssertEqual "整数: 変換値", 10, v
     AssertEqual "整数: 全角数字を許容", "", ValidateValue(def, "１０", v)
@@ -90,7 +90,7 @@ Private Sub Test_ValidateValue()
     AssertEqual "必須: 未入力", "必須項目が未入力です", ValidateValue(def, "", v)
 
     ' 小数
-    def.dataType = "DECIMAL": def.HasMin = False: def.HasMax = False
+    def.dataType = "DECIMAL": def.hasMin = False: def.hasMax = False
     AssertEqual "小数: 正常", "", ValidateValue(def, "1234.5", v)
     AssertNotEmpty "小数: 桁区切りカンマはエラー", ValidateValue(def, "1,234", v)
 
@@ -111,7 +111,7 @@ Private Sub Test_ValidateValue()
     AssertNotEmpty "文字列: 制御文字（タブ）", ValidateValue(def, "a" & vbTab & "b", v)
 
     ' 任意項目
-    def.Required = False
+    def.required = False
     AssertEqual "任意: 未入力はOK", "", ValidateValue(def, "", v)
 End Sub
 

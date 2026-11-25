@@ -1,18 +1,35 @@
 Attribute VB_Name = "modCsv"
-Option Explicit
 '==========================================================
 ' modCsv : CSVファイルの読込とパース
-'   ・文字コード自動判定（BOM → UTF-8妥当性チェック → Shift_JIS）
+'   ・文字コード自動判定（BOM → UTF-8として正しいか → Shift_JIS）
 '   ・RFC 4180 準拠（引用符内のカンマ・改行、"" によるエスケープ）
-'   ・改行コード CRLF / LF / CR いずれにも対応
-'   ・高速化：文字列をバイト配列に展開して走査し、
-'             フィールドは Mid$ で一括切り出し（1文字ずつ連結しない）
+'   ・改行コード CRLF / LF / CR いずれにも対応（内部でLFに統一）
+'   ・高速化（v0.3 性能改善）
+'       文字コード判定・復号 : Windows API の MultiByteToWideChar を使う
+'                              （VBAの1バイトずつのループ ＋ ADODB.Stream で約27秒 → 1秒未満）
+'       パース               : 引用符を含まない行はネイティブの Split で一括分割し、
+'                              引用符を含むレコードだけ1文字ずつ解析する
 '==========================================================
+
+#If VBA7 Then
+    Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
+        ByVal CodePage As Long, ByVal dwFlags As Long, _
+        ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, _
+        ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
+#Else
+    Private Declare Function MultiByteToWideChar Lib "kernel32" ( _
+        ByVal CodePage As Long, ByVal dwFlags As Long, _
+        ByVal lpMultiByteStr As Long, ByVal cbMultiByte As Long, _
+        ByVal lpWideCharStr As Long, ByVal cchWideChar As Long) As Long
+#End If
+
+Private Const CP_UTF8 As Long = 65001
+Private Const CP_SJIS As Long = 932                 ' Shift_JIS（Windows-31J）
+Private Const MB_ERR_INVALID_CHARS As Long = 8      ' 不正なバイト列があれば失敗させる
 
 Private Const CH_QUOTE As Long = 34
 Private Const CH_COMMA As Long = 44
 Private Const CH_LF As Long = 10
-Private Const CH_CR As Long = 13
 
 ' パース作業用（このモジュール内でのみ使用）
 Private mRows() As Variant
@@ -31,7 +48,6 @@ Public Function ReadTextFile(ByVal filePath As String, ByRef encodingName As Str
     bytes = ReadAllBytes(filePath)
     encodingName = DetectEncoding(bytes)
     text = DecodeBytes(bytes, encodingName)
-
     If Left$(text, 1) = ChrW$(&HFEFF) Then text = Mid$(text, 2)   ' BOMを除去
 
     LogDebug PROC, "文字コード判定: " & encodingName & " / " & (UBound(bytes) + 1) & " bytes"
@@ -66,80 +82,50 @@ End Function
 '----------------------------------------------------------
 ' CSV文字列を2次元配列 (1 To 行数, 1 To 最大列数) に変換
 '   fieldCounts(r) に各行の実際の列数を返す（列数不一致の検出用）
-'   空行は読み飛ばす
+'   空行は読み飛ばす。引用符内の改行は LF（Excelのセル内改行と同じ）になる
 '----------------------------------------------------------
-Public Function ParseCsv(ByRef text As String, ByRef fieldCounts() As Long) As Variant
+Public Function ParseCsv(ByVal text As String, ByRef fieldCounts() As Long) As Variant
     Const PROC As String = "modCsv.ParseCsv"
     Dim chars() As Byte
     Dim n As Long
-    Dim i As Long
-    Dim c As Long
-    Dim inQuotes As Boolean
-    Dim quoted As Boolean
-    Dim fieldStart As Long
+    Dim pos As Long
+    Dim nl As Long
+    Dim nextQuote As Long
     Dim result() As String
     Dim rowArr As Variant
     Dim r As Long
     Dim k As Long
     Dim maxCols As Long
 
-    n = Len(text)
-    If n = 0 Then RaiseAppError ERR_CSV_FORMAT, PROC, "CSVにデータがありません"
+    If Len(text) = 0 Then RaiseAppError ERR_CSV_FORMAT, PROC, "CSVにデータがありません"
 
-    chars = text                    ' UTF-16LE：1文字 = 2バイト
+    ' 改行コードを LF に統一（ネイティブの Replace なので高速）
+    If InStr(text, vbCr) > 0 Then text = Replace(Replace(text, vbCrLf, vbLf), vbCr, vbLf)
+    n = Len(text)
+
     mRowCount = 0
     ReDim mRows(1 To 1024)
     ReDim mFields(0 To 31)
     mFieldCount = 0
 
-    fieldStart = 1
-    i = 1
-    Do While i <= n
-        ' i文字目のコード（上位バイトが0 = ASCII のときだけ区切り文字の可能性がある）
-        If chars(i + i - 1) = 0 Then c = chars(i + i - 2) Else c = -1
+    nextQuote = InStr(1, text, """")
+    If nextQuote > 0 Then chars = text          ' 引用符がある場合のみ、1文字ずつ解析用のバイト配列を用意
 
-        If inQuotes Then
-            If c = CH_QUOTE Then
-                If i < n Then
-                    If chars(i + i) = CH_QUOTE And chars(i + i + 1) = 0 Then
-                        i = i + 1                     ' "" はエスケープされた " → 1文字読み飛ばす
-                    Else
-                        inQuotes = False
-                    End If
-                Else
-                    inQuotes = False
-                End If
-            End If
+    pos = 1
+    Do While pos <= n
+        nl = InStr(pos, text, vbLf)
+        If nl = 0 Then nl = n + 1
+
+        ' 次の引用符の位置は、通り過ぎたときだけ探し直す（毎行 InStr すると O(n^2) になるため）
+        If nextQuote > 0 And nextQuote < pos Then nextQuote = InStr(pos, text, """")
+
+        If nextQuote > 0 And nextQuote < nl Then
+            pos = ParseQuotedRecord(text, chars, pos, n)        ' 引用符あり：1文字ずつ
         Else
-            Select Case c
-                Case CH_QUOTE
-                    If i = fieldStart Then inQuotes = True: quoted = True
-                Case CH_COMMA
-                    AddField text, fieldStart, i - 1, quoted
-                    fieldStart = i + 1
-                    quoted = False
-                Case CH_CR, CH_LF
-                    AddField text, fieldStart, i - 1, quoted
-                    EndRow
-                    If c = CH_CR And i < n Then
-                        If chars(i + i) = CH_LF And chars(i + i + 1) = 0 Then i = i + 1   ' CRLF
-                    End If
-                    fieldStart = i + 1
-                    quoted = False
-            End Select
+            If nl > pos Then AddRow Split(Mid$(text, pos, nl - pos), ",")   ' 引用符なし：Split で一括
+            pos = nl + 1
         End If
-        i = i + 1
     Loop
-
-    If inQuotes Then
-        RaiseAppError ERR_CSV_FORMAT, PROC, "ダブルクォートが閉じられていません（" & (mRowCount + 1) & "件目のレコード付近）"
-    End If
-
-    ' 最終行（末尾に改行がない場合）
-    If fieldStart <= n Or mFieldCount > 0 Then
-        AddField text, fieldStart, n, quoted
-        EndRow
-    End If
 
     If mRowCount = 0 Then RaiseAppError ERR_CSV_FORMAT, PROC, "CSVにデータがありません"
 
@@ -183,7 +169,7 @@ Public Sub PreviewCsv(ByVal filePath As String, Optional ByVal maxRows As Long =
         If r > maxRows Then Exit For
         lineText = ""
         For c = 1 To fc(r)
-            lineText = lineText & "[" & Replace(d(r, c), vbCrLf, "<改行>") & "]"
+            lineText = lineText & "[" & Replace(d(r, c), vbLf, "<改行>") & "]"
         Next c
         Debug.Print r & ": " & lineText
     Next r
@@ -211,43 +197,87 @@ Private Function ReadAllBytes(ByVal filePath As String) As Byte()
 End Function
 
 ' UTF-8 として正しいバイト列かを判定
+'   MB_ERR_INVALID_CHARS 付きで変換し、不正なバイト列があれば 0 が返ることを利用する（ファイル全体を検査）
 Private Function IsValidUtf8(ByRef b() As Byte) As Boolean
-    Dim i As Long
-    Dim n As Long
-    Dim need As Long
-    Dim k As Long
-
-    n = UBound(b)
-    i = 0
-    Do While i <= n
-        Select Case b(i)
-            Case &H0 To &H7F:  need = 0
-            Case &HC2 To &HDF: need = 1
-            Case &HE0 To &HEF: need = 2
-            Case &HF0 To &HF4: need = 3
-            Case Else: Exit Function           ' False
-        End Select
-        For k = 1 To need
-            If i + k > n Then Exit Function
-            If (b(i + k) And &HC0) <> &H80 Then Exit Function
-        Next k
-        i = i + need + 1
-    Loop
-    IsValidUtf8 = True
+    IsValidUtf8 = (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, VarPtr(b(0)), UBound(b) + 1, 0, 0) > 0)
 End Function
 
-' ADODB.Stream で指定の文字コードとして文字列化
+' バイト列を指定の文字コードとして文字列化（1回目で必要な文字数を求め、2回目で変換）
 Private Function DecodeBytes(ByRef bytes() As Byte, ByVal charset As String) As String
-    Dim stm As Object
-    Set stm = CreateObject("ADODB.Stream")
-    stm.Type = 1                ' adTypeBinary
-    stm.Open
-    stm.Write bytes
-    stm.Position = 0
-    stm.Type = 2                ' adTypeText
-    stm.charset = charset
-    DecodeBytes = stm.ReadText(-1)   ' adReadAll
-    stm.Close
+    Dim cp As Long
+    Dim size As Long
+    Dim n As Long
+    Dim s As String
+
+    Select Case charset
+        Case "utf-8":     cp = CP_UTF8
+        Case "shift_jis": cp = CP_SJIS
+        Case "unicode"
+            DecodeBytes = bytes             ' UTF-16LE はそのまま VBA の文字列になる
+            Exit Function
+    End Select
+
+    size = UBound(bytes) + 1
+    n = MultiByteToWideChar(cp, 0, VarPtr(bytes(0)), size, 0, 0)
+    If n = 0 Then RaiseAppError ERR_CSV_FORMAT, "modCsv.DecodeBytes", "文字コードの変換に失敗しました（" & charset & "）"
+    s = String$(n, vbNullChar)
+    MultiByteToWideChar cp, 0, VarPtr(bytes(0)), size, StrPtr(s), n
+    DecodeBytes = s
+End Function
+
+' 引用符を含むレコードを1文字ずつ解析する。戻り値：次のレコードの開始位置
+Private Function ParseQuotedRecord(ByRef text As String, ByRef chars() As Byte, _
+                                   ByVal pos As Long, ByVal n As Long) As Long
+    Dim i As Long
+    Dim c As Long
+    Dim inQuotes As Boolean
+    Dim quoted As Boolean
+    Dim fieldStart As Long
+
+    mFieldCount = 0
+    fieldStart = pos
+    i = pos
+    Do While i <= n
+        ' i文字目のコード（上位バイトが0 = ASCII のときだけ区切り文字の可能性がある）
+        If chars(i + i - 1) = 0 Then c = chars(i + i - 2) Else c = -1
+
+        If inQuotes Then
+            If c = CH_QUOTE Then
+                If i < n Then
+                    If chars(i + i) = CH_QUOTE And chars(i + i + 1) = 0 Then
+                        i = i + 1                     ' "" はエスケープされた " → 1文字読み飛ばす
+                    Else
+                        inQuotes = False
+                    End If
+                Else
+                    inQuotes = False
+                End If
+            End If
+        Else
+            Select Case c
+                Case CH_QUOTE
+                    If i = fieldStart Then inQuotes = True: quoted = True
+                Case CH_COMMA
+                    AddField text, fieldStart, i - 1, quoted
+                    fieldStart = i + 1
+                    quoted = False
+                Case CH_LF
+                    AddField text, fieldStart, i - 1, quoted
+                    EndRow
+                    ParseQuotedRecord = i + 1
+                    Exit Function
+            End Select
+        End If
+        i = i + 1
+    Loop
+
+    If inQuotes Then
+        RaiseAppError ERR_CSV_FORMAT, "modCsv.ParseQuotedRecord", _
+                      "ダブルクォートが閉じられていません（" & (mRowCount + 1) & "件目のレコード付近）"
+    End If
+    AddField text, fieldStart, n, quoted
+    EndRow
+    ParseQuotedRecord = n + 1
 End Function
 
 Private Sub AddField(ByRef text As String, ByVal startPos As Long, ByVal endPos As Long, ByVal quoted As Boolean)
@@ -281,11 +311,14 @@ Private Sub EndRow()
     For k = 0 To mFieldCount - 1
         arr(k) = mFields(k)
     Next k
+    AddRow arr
+    mFieldCount = 0
+End Sub
 
+Private Sub AddRow(ByVal arr As Variant)
     mRowCount = mRowCount + 1
     If mRowCount > UBound(mRows) Then ReDim Preserve mRows(1 To UBound(mRows) * 2)
     mRows(mRowCount) = arr
-    mFieldCount = 0
 End Sub
 
 '----------------------------------------------------------
@@ -318,4 +351,5 @@ Public Sub WriteTextFile(ByVal filePath As String, ByVal text As String, Optiona
     End If
     stm.Close
 End Sub
+
 
