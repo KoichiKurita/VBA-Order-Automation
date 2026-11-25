@@ -25,8 +25,11 @@ Public Sub RunPhase5Tests()
     summary = "PASS: " & mPass & " / FAIL: " & mFail
     Debug.Print summary
     LogInfo "modTestPhase5", "テスト結果 " & summary
-    MsgBox "Phase 5 テスト結果" & vbCrLf & summary & vbCrLf & "（詳細はイミディエイトウィンドウ）", _
-           IIf(mFail = 0, vbInformation, vbCritical), AppTitle()
+    RecordTestResult "Phase 5（バッチ・通知）", mPass, mFail
+    If Not IsTestQuiet() Then
+        MsgBox "Phase 5 テスト結果" & vbCrLf & summary & vbCrLf & "（詳細はイミディエイトウィンドウ）", _
+               IIf(mFail = 0, vbInformation, vbCritical), AppTitle()
+    End If
     Exit Sub
 EH:
     HandleError "modTestPhase5.RunPhase5Tests"
@@ -90,5 +93,4 @@ End Sub
 Private Sub AssertTrue(ByVal testName As String, ByVal condition As Boolean)
     AssertEqual testName, True, condition
 End Sub
-
 

@@ -29,8 +29,11 @@ Public Sub RunPhase4Tests()
     summary = "PASS: " & mPass & " / FAIL: " & mFail
     Debug.Print summary
     LogInfo "modTestPhase4", "テスト結果 " & summary
-    MsgBox "Phase 4 テスト結果" & vbCrLf & summary & vbCrLf & "（詳細はイミディエイトウィンドウ）", _
-           IIf(mFail = 0, vbInformation, vbCritical), AppTitle()
+    RecordTestResult "Phase 4（権限・監査・暗号）", mPass, mFail
+    If Not IsTestQuiet() Then
+        MsgBox "Phase 4 テスト結果" & vbCrLf & summary & vbCrLf & "（詳細はイミディエイトウィンドウ）", _
+               IIf(mFail = 0, vbInformation, vbCritical), AppTitle()
+    End If
     Exit Sub
 EH:
     HandleError "modTestPhase4.RunPhase4Tests"
@@ -161,5 +164,4 @@ End Sub
 Private Sub AssertTrue(ByVal testName As String, ByVal condition As Boolean)
     AssertEqual testName, True, condition
 End Sub
-
 
