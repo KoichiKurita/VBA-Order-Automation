@@ -5,3 +5,5 @@ backup/
 output/
 input/
 batch/
+dist/
+*.pfx
