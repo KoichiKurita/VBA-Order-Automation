@@ -22,7 +22,7 @@ Public Sub ExportAllModules()
     Dim cnt As Long
     On Error GoTo EH
 
-    root = ThisWorkbook.Path & "\src"
+    root = ThisWorkbook.path & "\src"
 
     For Each comp In ThisWorkbook.VBProject.VBComponents
         Select Case comp.Type

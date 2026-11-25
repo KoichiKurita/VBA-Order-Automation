@@ -40,8 +40,8 @@ Private Const REPORT_FONT As String = "Meiryo UI"
 Public Sub CreateMonthlyReport()
     Const PROC As String = "modReport.CreateMonthlyReport"
     Dim ym As String
-    Dim FromDate As Date
-    Dim ToDate As Date
+    Dim fromDate As Date
+    Dim toDate As Date
     Dim rep As clsReportData
     Dim pdfPath As String
     Dim csvPath As String
@@ -55,10 +55,10 @@ Public Sub CreateMonthlyReport()
         LogInfo PROC, "年月の入力がキャンセルされました"
         Exit Sub
     End If
-    FromDate = DateSerial(CLng(Left$(ym, 4)), CLng(Mid$(ym, 6, 2)), 1)
-    ToDate = DateSerial(Year(FromDate), Month(FromDate) + 1, 0)   ' 月末日
+    fromDate = DateSerial(CLng(Left$(ym, 4)), CLng(Mid$(ym, 6, 2)), 1)
+    toDate = DateSerial(Year(fromDate), Month(fromDate) + 1, 0)   ' 月末日
 
-    Set rep = BuildReport(FromDate, ToDate)
+    Set rep = BuildReport(fromDate, toDate)
     pdfPath = ExportReportPdf(rep)
     csvPath = ExportSummaryCsv(rep)
 
@@ -80,7 +80,7 @@ End Sub
 '----------------------------------------------------------
 ' 処理層：集計して Report シートを作成する
 '----------------------------------------------------------
-Public Function BuildReport(ByVal FromDate As Date, ByVal ToDate As Date) As clsReportData
+Public Function BuildReport(ByVal fromDate As Date, ByVal toDate As Date) As clsReportData
     Const PROC As String = "modReport.BuildReport"
     Dim sw As clsStopwatch
     Dim guard As clsAppState
@@ -100,14 +100,16 @@ Public Function BuildReport(ByVal FromDate As Date, ByVal ToDate As Date) As cls
     Dim lapSw As clsStopwatch
     Dim detail As String
 
+    RequirePermission actReport
+
     Set sw = New clsStopwatch
     Set lapSw = New clsStopwatch
     Set guard = New clsAppState
     Set rep = New clsReportData
-    rep.FromDate = FromDate
-    rep.ToDate = ToDate
+    rep.fromDate = fromDate
+    rep.toDate = toDate
     rep.ReportId = RunId()
-    LogInfo PROC, "レポート作成開始: " & Format$(FromDate, "yyyy/mm/dd") & " - " & Format$(ToDate, "yyyy/mm/dd")
+    LogInfo PROC, "レポート作成開始: " & Format$(fromDate, "yyyy/mm/dd") & " - " & Format$(toDate, "yyyy/mm/dd")
 
     '--- 1. 一括読込
     guard.ShowProgress "受注データを読み込んでいます..."
@@ -134,7 +136,7 @@ Public Function BuildReport(ByVal FromDate As Date, ByVal ToDate As Date) As cls
     For i = 1 To n
         d = data(i, iDate)
         If VarType(d) = vbDate Then                ' 空行（キー未入力）は日付が無いので自然に除外
-            If d >= FromDate And d <= ToDate Then
+            If d >= fromDate And d <= toDate Then
                 cnt = cnt + 1
                 rowsIdx(cnt) = i
                 qtys(i) = CDbl(data(i, iQty))
@@ -146,8 +148,8 @@ Public Function BuildReport(ByVal FromDate As Date, ByVal ToDate As Date) As cls
     Next i
 
     If cnt = 0 Then
-        RaiseAppError ERR_VALIDATION, PROC, "対象期間（" & Format$(FromDate, "yyyy/mm/dd") & " 〜 " & _
-                      Format$(ToDate, "yyyy/mm/dd") & "）の受注データがありません"
+        RaiseAppError ERR_VALIDATION, PROC, "対象期間（" & Format$(fromDate, "yyyy/mm/dd") & " 〜 " & _
+                      Format$(toDate, "yyyy/mm/dd") & "）の受注データがありません"
     End If
     rep.OrderCount = cnt
 
@@ -166,6 +168,8 @@ Public Function BuildReport(ByVal FromDate As Date, ByVal ToDate As Date) As cls
     rep.ElapsedSeconds = sw.ElapsedSeconds
     rep.TimingDetail = detail
     LogInfo PROC, "処理時間の内訳: " & detail
+    AuditLog "REPORT", "OK", "period=" & Format$(fromDate, "yyyy/mm/dd") & "-" & Format$(toDate, "yyyy/mm/dd") & _
+             " / orders=" & cnt & " / reportId=" & rep.ReportId
     LogInfo PROC, "レポート作成終了: " & cnt & " 件 / 金額 " & Format$(rep.TotalAmount, "#,##0") & _
                   " / " & Format$(rep.ElapsedSeconds, "0.000") & " 秒"
     Set BuildReport = rep
@@ -181,7 +185,7 @@ Public Function ExportReportPdf(ByVal rep As clsReportData) As String
 
     folder = ResolvePath("OutputDir", "output")
     EnsureFolder folder
-    filePath = folder & "\受注集計_" & Format$(rep.FromDate, "yyyymm") & "_" & rep.ReportId & ".pdf"
+    filePath = folder & "\受注集計_" & Format$(rep.fromDate, "yyyymm") & "_" & rep.ReportId & ".pdf"
 
     ' IncludeDocProperties:=False … 作成者名・会社名などのメタデータをPDFに含めない（情報漏えい対策）
     ThisWorkbook.Worksheets(REPORT_SHEET).ExportAsFixedFormat _
@@ -189,6 +193,7 @@ Public Function ExportReportPdf(ByVal rep As clsReportData) As String
         IncludeDocProperties:=False, IgnorePrintAreas:=False, OpenAfterPublish:=False
 
     LogInfo PROC, "PDF出力: " & filePath
+    AuditLog "EXPORT", "OK", "PDF " & filePath          ' データの持ち出しを追跡できるようにする
     ExportReportPdf = filePath
 End Function
 
@@ -218,10 +223,11 @@ Public Function ExportSummaryCsv(ByVal rep As clsReportData) As String
 
     folder = ResolvePath("OutputDir", "output")
     EnsureFolder folder
-    filePath = folder & "\受注集計_" & Format$(rep.FromDate, "yyyymm") & "_" & rep.ReportId & ".csv"
+    filePath = folder & "\受注集計_" & Format$(rep.fromDate, "yyyymm") & "_" & rep.ReportId & ".csv"
     WriteTextFile filePath, Join(arr, vbCrLf) & vbCrLf, True
 
     LogInfo PROC, "CSV出力: " & filePath
+    AuditLog "EXPORT", "OK", "CSV " & filePath
     ExportSummaryCsv = filePath
 End Function
 
@@ -367,8 +373,10 @@ Private Sub RenderReport(ByVal rep As clsReportData, ByVal lapSw As clsStopwatch
     Dim r As Long
     Dim topN As Long
     Dim lastRow As Long
+    Dim sheetGuard As clsSheetUnlock
 
     Set ws = GetReportSheet()
+    Set sheetGuard = UnlockSheet(ws)          ' グラフの作成・削除は保護中にできないため、描画の間だけ解除
     ws.Cells.Clear
     Do While ws.ChartObjects.Count > 0
         ws.ChartObjects(1).Delete
@@ -392,9 +400,9 @@ Private Sub RenderReport(ByVal rep As clsReportData, ByVal lapSw As clsStopwatch
         .Font.size = 16
         .Font.Bold = True
     End With
-    ws.Range("A2").value = "対象期間：" & Format$(rep.FromDate, "yyyy/mm/dd") & " 〜 " & Format$(rep.ToDate, "yyyy/mm/dd")
+    ws.Range("A2").value = "対象期間：" & Format$(rep.fromDate, "yyyy/mm/dd") & " 〜 " & Format$(rep.toDate, "yyyy/mm/dd")
     ws.Range("A3").value = "出力日時：" & Format$(Now, "yyyy/mm/dd hh:nn") & "　出力者：" & _
-                           Environ$("USERNAME") & "　レポートID：" & rep.ReportId
+                           CurrentUserName() & "　レポートID：" & rep.ReportId
     ws.Range("A3").Font.Color = RGB(89, 89, 89)
 
     '--- KPI

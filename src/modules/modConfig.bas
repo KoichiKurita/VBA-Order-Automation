@@ -47,7 +47,7 @@ Public Function ResolvePath(ByVal key As String, Optional ByVal defaultValue As 
     If Right$(p, 1) = "\" Then p = Left$(p, Len(p) - 1)
 
     If Not (p Like "?:\*" Or p Like "\\*") Then
-        p = ThisWorkbook.Path & "\" & p
+        p = ThisWorkbook.path & "\" & p
     End If
     ResolvePath = p
 End Function
