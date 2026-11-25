@@ -32,6 +32,7 @@ Public Sub UndoLastImport()
 
     ResetRunId
     ReloadConfig
+    RequirePermission actUndoImport       ' 確認ダイアログを出す前に権限を確認する
 
     Set lo = GetOrdersTable()
     If lo.DataBodyRange Is Nothing Then
@@ -96,11 +97,14 @@ Public Function RemoveImportBatch(ByVal importId As String, Optional ByVal withB
     Dim k As Long
     Dim firstRow As Long
     Dim firstCol As Long
+    Dim sheetGuard As clsSheetUnlock
 
+    RequirePermission actUndoImport       ' 処理側でも必ず確認する（多層防御）
     Set guard = New clsAppState
     Set lo = GetOrdersTable()
     If lo.DataBodyRange Is Nothing Then Exit Function
     Set ws = lo.parent
+    Set sheetGuard = UnlockSheet(ws)          ' テーブルの縮小は保護中にできないため、処理の間だけ解除
 
     guard.ShowProgress "取消対象を確認しています..."
     data = lo.DataBodyRange.value
@@ -144,7 +148,8 @@ Public Function RemoveImportBatch(ByVal importId As String, Optional ByVal withB
     If k = 0 Then k = 1
     lo.Resize ws.Range(lo.HeaderRowRange.Cells(1, 1), ws.Cells(firstRow + k - 1, firstCol + nc - 1))
 
-    LogInfo PROC, "取込を取り消しました: 取込ID=" & importId & " / " & RemoveImportBatch & " 件 / 実行者=" & Environ$("USERNAME")
+    LogInfo PROC, "取込を取り消しました: 取込ID=" & importId & " / " & RemoveImportBatch & " 件 / 実行者=" & CurrentUserName()
+    AuditLog "UNDO_IMPORT", "OK", "importId=" & importId & " / rows=" & RemoveImportBatch
 End Function
 
 

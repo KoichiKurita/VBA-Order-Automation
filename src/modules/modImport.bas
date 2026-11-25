@@ -89,6 +89,10 @@ Public Function ImportOrdersFromFile(ByVal filePath As String) As clsImportResul
     Dim lapSw As clsStopwatch
     Dim detail As String
     Dim runIdValue As String
+    Dim unlockOrders As clsSheetUnlock
+    Dim unlockErrors As clsSheetUnlock
+
+    RequirePermission actImport          ' 画面のボタン制御とは別に、処理側でも必ず権限を確認する
 
     startTime = Timer
     Set lapSw = New clsStopwatch
@@ -123,6 +127,9 @@ Public Function ImportOrdersFromFile(ByVal filePath As String) As clsImportResul
     colMap = MapHeader(data, fieldCounts(1), defs)
     keyIdx = FindDef(defs, CStr(GetConfig("ImportKeyColumn")))
 
+    ' テーブルの作成・拡張はシート保護（UserInterfaceOnly）では許可されないため、処理の間だけ解除する
+    Set unlockOrders = UnlockSheetByName(ORDERS_SHEET)
+    Set unlockErrors = UnlockSheetByName(ERRORS_SHEET)
     EnsureOrdersTable defs
     ' 既存キー（値 = 0）とファイル内のキー（値 = 行番号）を1つの Dictionary で管理し、照会を1回にする
     Set existingKeys = LoadExistingKeys(defs(keyIdx).Name)
@@ -236,6 +243,8 @@ Public Function ImportOrdersFromFile(ByVal filePath As String) As clsImportResul
     res.TimingDetail = detail
     LogInfo PROC, "取込終了: " & Replace(res.summary(), vbCrLf, " / ")
     LogInfo PROC, "処理時間の内訳: " & detail
+    AuditLog "IMPORT", IIf(res.Committed, "OK", "NG"), "file=" & fileName & " / rows=" & res.TotalRows & _
+             " / imported=" & res.ImportedRows & " / errorRows=" & res.ErrorRows & " / importId=" & runIdValue
     Set ImportOrdersFromFile = res
 End Function
 

@@ -16,8 +16,8 @@ Option Explicit
 '==========================================================
 
 Public ReportId As String
-Public FromDate As Date
-Public ToDate As Date
+Public fromDate As Date
+Public toDate As Date
 Public OrderCount As Long
 Public TotalQty As Double
 Public TotalAmount As Double

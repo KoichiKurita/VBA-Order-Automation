@@ -92,7 +92,7 @@ Private Sub WriteLog(ByVal level As LogLevel, ByVal source As String, ByVal mess
     lineText = Format$(Now, "yyyy-mm-dd hh:nn:ss") & vbTab & _
                LevelName(level) & vbTab & _
                RunId() & vbTab & _
-               Environ$("USERNAME") & vbTab & _
+               CurrentUserName() & vbTab & _
                Sanitize(source) & vbTab & _
                Sanitize(message)
 

@@ -66,8 +66,8 @@ End Sub
 Private Sub Test_BuildReport()
     Dim lo As ListObject
     Dim latest As Date
-    Dim FromDate As Date
-    Dim ToDate As Date
+    Dim fromDate As Date
+    Dim toDate As Date
     Dim rep As clsReportData
     Dim expCount As Double
     Dim expQty As Double
@@ -76,18 +76,18 @@ Private Sub Test_BuildReport()
 
     Set lo = GetOrdersTable()
     latest = CDate(Application.WorksheetFunction.Max(lo.ListColumns("受注日").DataBodyRange))
-    FromDate = DateSerial(Year(latest), Month(latest), 1)
-    ToDate = DateSerial(Year(latest), Month(latest) + 1, 0)
+    fromDate = DateSerial(Year(latest), Month(latest), 1)
+    toDate = DateSerial(Year(latest), Month(latest) + 1, 0)
 
     ' 期待値：ワークシート関数で独立に計算
-    cond = "(tblOrders[受注日]>=" & CLng(FromDate) & ")*(tblOrders[受注日]<=" & CLng(ToDate) & ")"
+    cond = "(tblOrders[受注日]>=" & CLng(fromDate) & ")*(tblOrders[受注日]<=" & CLng(toDate) & ")"
     expCount = Application.Evaluate("SUMPRODUCT(" & cond & ")")
     expQty = Application.Evaluate("SUMPRODUCT(" & cond & "*tblOrders[数量])")
     expAmount = Application.Evaluate("SUMPRODUCT(" & cond & "*tblOrders[数量]*tblOrders[単価])")
 
-    Set rep = BuildReport(FromDate, ToDate)
+    Set rep = BuildReport(fromDate, toDate)
 
-    AssertEqual "集計: 件数（" & Format$(FromDate, "yyyy/mm") & "）", expCount, rep.OrderCount
+    AssertEqual "集計: 件数（" & Format$(fromDate, "yyyy/mm") & "）", expCount, rep.OrderCount
     AssertEqual "集計: 数量合計", expQty, rep.TotalQty
     AssertEqual "集計: 金額合計", expAmount, rep.TotalAmount
 

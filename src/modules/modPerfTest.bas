@@ -34,6 +34,7 @@ Public Sub RunPerformanceTest()
     On Error GoTo EH
 
     ReloadConfig
+    RequirePermission actAdmin            ' 大量データの取込・削除を行うため管理者のみ
     rows = CLng(GetConfig("PerfTestRows", 100000))
     repeatCount = CLng(GetConfig("PerfTestRepeat", 3))
     If repeatCount < 1 Then repeatCount = 1

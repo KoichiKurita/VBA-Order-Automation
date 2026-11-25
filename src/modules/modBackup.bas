@@ -12,7 +12,7 @@ Public Sub CreateBackup()
     Dim destPath As String
     Dim keep As Long
 
-    If Len(ThisWorkbook.Path) = 0 Then
+    If Len(ThisWorkbook.path) = 0 Then
         RaiseAppError ERR_FILE_NOT_FOUND, PROC, "ブックが未保存のためバックアップできません。先に保存してください。"
     End If
 

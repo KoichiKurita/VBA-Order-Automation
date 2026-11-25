@@ -47,6 +47,7 @@ Public Sub ProfileImport()
 
     ResetRunId
     ReloadConfig
+    RequirePermission actAdmin
     csvPath = ResolvePath("OutputDir", "output") & "\perf\perf_100000.csv"
     If Not FileExists(csvPath) Then
         RaiseAppError ERR_FILE_NOT_FOUND, PROC, "先に RunPerformanceTest を実行して、テストデータを生成してください。"
