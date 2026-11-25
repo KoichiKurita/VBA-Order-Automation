@@ -148,8 +148,11 @@ Public Function RemoveImportBatch(ByVal importId As String, Optional ByVal withB
     If k = 0 Then k = 1
     lo.Resize ws.Range(lo.HeaderRowRange.Cells(1, 1), ws.Cells(firstRow + k - 1, firstCol + nc - 1))
 
+    ' テーブルの外に残った行（書式だけが残っている行）を削除する
+    ' （残すと使用範囲が10万行のまま記録され、ブックのサイズが何MBも増える）
+    If n > k Then ws.Range(ws.rows(firstRow + k), ws.rows(firstRow + n - 1)).Delete
+
     LogInfo PROC, "取込を取り消しました: 取込ID=" & importId & " / " & RemoveImportBatch & " 件 / 実行者=" & CurrentUserName()
     AuditLog "UNDO_IMPORT", "OK", "importId=" & importId & " / rows=" & RemoveImportBatch
 End Function
-
 
