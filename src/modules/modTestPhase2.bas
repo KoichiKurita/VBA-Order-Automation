@@ -26,8 +26,11 @@ Public Sub RunPhase2Tests()
     summary = "PASS: " & mPass & " / FAIL: " & mFail
     Debug.Print summary
     LogInfo "modTestPhase2", "テスト結果 " & summary
-    MsgBox "Phase 2 テスト結果" & vbCrLf & summary & vbCrLf & "（詳細はイミディエイトウィンドウ）", _
-           IIf(mFail = 0, vbInformation, vbCritical), AppTitle()
+    RecordTestResult "Phase 2（CSV取込・検証）", mPass, mFail
+    If Not IsTestQuiet() Then
+        MsgBox "Phase 2 テスト結果" & vbCrLf & summary & vbCrLf & "（詳細はイミディエイトウィンドウ）", _
+               IIf(mFail = 0, vbInformation, vbCritical), AppTitle()
+    End If
 End Sub
 
 '----------------------------------------------------------
@@ -147,5 +150,4 @@ Private Sub AssertNotEmpty(ByVal testName As String, ByVal actual As String)
         LogWarn "modTestPhase2", "FAIL " & testName
     End If
 End Sub
-
 
