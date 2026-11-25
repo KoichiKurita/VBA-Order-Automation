@@ -46,9 +46,10 @@ Private Sub Class_Terminate()
     End With
 End Sub
 
-' 進捗表示（ステータスバー）
+' 進捗表示（ステータスバーと、メニュー画面が開いていればその画面）
 Public Sub ShowProgress(ByVal message As String)
     Application.StatusBar = message
+    ReportProgress message
     DoEvents
 End Sub
 

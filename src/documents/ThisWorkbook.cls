@@ -16,6 +16,11 @@ Private Sub Workbook_Open()
     On Error Resume Next            ' 起動時の処理の失敗で、ブックを開けなくならないようにする
     ApplyProtection                 ' UserInterfaceOnly は保存されないため、開くたびに再設定
     AuditLog "OPEN", "OK", ThisWorkbook.Name & "（ロール：" & RoleName(CurrentRole()) & "）"
+
+    ' メニューは開く処理が終わってから表示する（Workbook_Open の中で直接表示しない）
+    If CBool(GetConfig("ShowMenuOnOpen", True)) Then
+        Application.OnTime Now, "'" & ThisWorkbook.Name & "'!ShowMenu"
+    End If
 End Sub
 
 Private Sub Workbook_BeforeSave(ByVal SaveAsUI As Boolean, Cancel As Boolean)
