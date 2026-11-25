@@ -16,8 +16,8 @@ Option Explicit
 '==========================================================
 
 Public ReportId As String
-Public fromDate As Date
-Public toDate As Date
+Public FromDate As Date
+Public ToDate As Date
 Public OrderCount As Long
 Public TotalQty As Double
 Public TotalAmount As Double
@@ -26,4 +26,5 @@ Public ByProduct As Variant
 Public ByRep As Variant
 Public ByDate As Variant
 Public ElapsedSeconds As Double
+Public TimingDetail As String     ' 処理ごとの時間（性能分析用）
 

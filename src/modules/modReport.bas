@@ -40,8 +40,8 @@ Private Const REPORT_FONT As String = "Meiryo UI"
 Public Sub CreateMonthlyReport()
     Const PROC As String = "modReport.CreateMonthlyReport"
     Dim ym As String
-    Dim fromDate As Date
-    Dim toDate As Date
+    Dim FromDate As Date
+    Dim ToDate As Date
     Dim rep As clsReportData
     Dim pdfPath As String
     Dim csvPath As String
@@ -55,10 +55,10 @@ Public Sub CreateMonthlyReport()
         LogInfo PROC, "年月の入力がキャンセルされました"
         Exit Sub
     End If
-    fromDate = DateSerial(CLng(Left$(ym, 4)), CLng(Mid$(ym, 6, 2)), 1)
-    toDate = DateSerial(Year(fromDate), Month(fromDate) + 1, 0)   ' 月末日
+    FromDate = DateSerial(CLng(Left$(ym, 4)), CLng(Mid$(ym, 6, 2)), 1)
+    ToDate = DateSerial(Year(FromDate), Month(FromDate) + 1, 0)   ' 月末日
 
-    Set rep = BuildReport(fromDate, toDate)
+    Set rep = BuildReport(FromDate, ToDate)
     pdfPath = ExportReportPdf(rep)
     csvPath = ExportSummaryCsv(rep)
 
@@ -80,7 +80,7 @@ End Sub
 '----------------------------------------------------------
 ' 処理層：集計して Report シートを作成する
 '----------------------------------------------------------
-Public Function BuildReport(ByVal fromDate As Date, ByVal toDate As Date) As clsReportData
+Public Function BuildReport(ByVal FromDate As Date, ByVal ToDate As Date) As clsReportData
     Const PROC As String = "modReport.BuildReport"
     Dim sw As clsStopwatch
     Dim guard As clsAppState
@@ -97,14 +97,17 @@ Public Function BuildReport(ByVal fromDate As Date, ByVal toDate As Date) As cls
     Dim qtys() As Double
     Dim amounts() As Double
     Dim d As Variant
+    Dim lapSw As clsStopwatch
+    Dim detail As String
 
     Set sw = New clsStopwatch
+    Set lapSw = New clsStopwatch
     Set guard = New clsAppState
     Set rep = New clsReportData
-    rep.fromDate = fromDate
-    rep.toDate = toDate
+    rep.FromDate = FromDate
+    rep.ToDate = ToDate
     rep.ReportId = RunId()
-    LogInfo PROC, "レポート作成開始: " & Format$(fromDate, "yyyy/mm/dd") & " - " & Format$(toDate, "yyyy/mm/dd")
+    LogInfo PROC, "レポート作成開始: " & Format$(FromDate, "yyyy/mm/dd") & " - " & Format$(ToDate, "yyyy/mm/dd")
 
     '--- 1. 一括読込
     guard.ShowProgress "受注データを読み込んでいます..."
@@ -120,6 +123,7 @@ Public Function BuildReport(ByVal fromDate As Date, ByVal toDate As Date) As cls
     iQty = ColIndex(lo, COL_QTY)
     iPrice = ColIndex(lo, COL_PRICE)
     iRep = ColIndex(lo, COL_REP)
+    Lap lapSw, detail, "読込"
 
     '--- 2. 期間で絞り込み、金額を1回だけ計算
     guard.ShowProgress "集計しています..."
@@ -130,7 +134,7 @@ Public Function BuildReport(ByVal fromDate As Date, ByVal toDate As Date) As cls
     For i = 1 To n
         d = data(i, iDate)
         If VarType(d) = vbDate Then                ' 空行（キー未入力）は日付が無いので自然に除外
-            If d >= fromDate And d <= toDate Then
+            If d >= FromDate And d <= ToDate Then
                 cnt = cnt + 1
                 rowsIdx(cnt) = i
                 qtys(i) = CDbl(data(i, iQty))
@@ -142,8 +146,8 @@ Public Function BuildReport(ByVal fromDate As Date, ByVal toDate As Date) As cls
     Next i
 
     If cnt = 0 Then
-        RaiseAppError ERR_VALIDATION, PROC, "対象期間（" & Format$(fromDate, "yyyy/mm/dd") & " 〜 " & _
-                      Format$(toDate, "yyyy/mm/dd") & "）の受注データがありません"
+        RaiseAppError ERR_VALIDATION, PROC, "対象期間（" & Format$(FromDate, "yyyy/mm/dd") & " 〜 " & _
+                      Format$(ToDate, "yyyy/mm/dd") & "）の受注データがありません"
     End If
     rep.OrderCount = cnt
 
@@ -153,12 +157,15 @@ Public Function BuildReport(ByVal fromDate As Date, ByVal toDate As Date) As cls
     rep.ByRep = GroupBy(data, rowsIdx, cnt, qtys, amounts, iRep, iRep, rep.TotalAmount, True)
     rep.ByDate = GroupBy(data, rowsIdx, cnt, qtys, amounts, iDate, iDate, rep.TotalAmount, False)
     data = Empty
+    Lap lapSw, detail, "集計"
 
     '--- 4. 帳票シート作成
     guard.ShowProgress "帳票を作成しています..."
-    RenderReport rep
+    RenderReport rep, lapSw, detail
 
     rep.ElapsedSeconds = sw.ElapsedSeconds
+    rep.TimingDetail = detail
+    LogInfo PROC, "処理時間の内訳: " & detail
     LogInfo PROC, "レポート作成終了: " & cnt & " 件 / 金額 " & Format$(rep.TotalAmount, "#,##0") & _
                   " / " & Format$(rep.ElapsedSeconds, "0.000") & " 秒"
     Set BuildReport = rep
@@ -174,7 +181,7 @@ Public Function ExportReportPdf(ByVal rep As clsReportData) As String
 
     folder = ResolvePath("OutputDir", "output")
     EnsureFolder folder
-    filePath = folder & "\受注集計_" & Format$(rep.fromDate, "yyyymm") & "_" & rep.ReportId & ".pdf"
+    filePath = folder & "\受注集計_" & Format$(rep.FromDate, "yyyymm") & "_" & rep.ReportId & ".pdf"
 
     ' IncludeDocProperties:=False … 作成者名・会社名などのメタデータをPDFに含めない（情報漏えい対策）
     ThisWorkbook.Worksheets(REPORT_SHEET).ExportAsFixedFormat _
@@ -211,7 +218,7 @@ Public Function ExportSummaryCsv(ByVal rep As clsReportData) As String
 
     folder = ResolvePath("OutputDir", "output")
     EnsureFolder folder
-    filePath = folder & "\受注集計_" & Format$(rep.fromDate, "yyyymm") & "_" & rep.ReportId & ".csv"
+    filePath = folder & "\受注集計_" & Format$(rep.FromDate, "yyyymm") & "_" & rep.ReportId & ".csv"
     WriteTextFile filePath, Join(arr, vbCrLf) & vbCrLf, True
 
     LogInfo PROC, "CSV出力: " & filePath
@@ -355,7 +362,7 @@ End Function
 '==========================================================
 ' 内部処理：帳票
 '==========================================================
-Private Sub RenderReport(ByVal rep As clsReportData)
+Private Sub RenderReport(ByVal rep As clsReportData, ByVal lapSw As clsStopwatch, ByRef detail As String)
     Dim ws As Worksheet
     Dim r As Long
     Dim topN As Long
@@ -385,7 +392,7 @@ Private Sub RenderReport(ByVal rep As clsReportData)
         .Font.size = 16
         .Font.Bold = True
     End With
-    ws.Range("A2").value = "対象期間：" & Format$(rep.fromDate, "yyyy/mm/dd") & " 〜 " & Format$(rep.toDate, "yyyy/mm/dd")
+    ws.Range("A2").value = "対象期間：" & Format$(rep.FromDate, "yyyy/mm/dd") & " 〜 " & Format$(rep.ToDate, "yyyy/mm/dd")
     ws.Range("A3").value = "出力日時：" & Format$(Now, "yyyy/mm/dd hh:nn") & "　出力者：" & _
                            Environ$("USERNAME") & "　レポートID：" & rep.ReportId
     ws.Range("A3").Font.Color = RGB(89, 89, 89)
@@ -404,8 +411,17 @@ Private Sub RenderReport(ByVal rep As clsReportData)
     r = WriteSection(ws, r, "商品別", rep.ByProduct, "商品コード", "商品名", topN)
     r = WriteSection(ws, r, "担当者別", rep.ByRep, "担当者", "", topN)
     lastRow = WriteDaily(ws, r, rep.ByDate)
+    Lap lapSw, detail, "描画"
 
     SetupPrint ws, rep, lastRow
+    Lap lapSw, detail, "印刷設定"
+End Sub
+
+' 区間計測：経過時間を detail に追記してストップウォッチをリセット
+Private Sub Lap(ByVal sw As clsStopwatch, ByRef detail As String, ByVal label As String)
+    If Len(detail) > 0 Then detail = detail & " / "
+    detail = detail & label & " " & Format$(sw.ElapsedSeconds, "0.00") & "s"
+    sw.StartTimer
 End Sub
 
 Private Function GetReportSheet() As Worksheet
@@ -545,7 +561,7 @@ Private Function WriteDaily(ByVal ws As Worksheet, ByVal startRow As Long, ByVal
         Loop
         With .SeriesCollection.NewSeries
             .Name = "受注金額"
-            .Values = ws.Cells(dataRow, 6).Resize(n, 1)
+            .values = ws.Cells(dataRow, 6).Resize(n, 1)
             .XValues = ws.Cells(dataRow, 2).Resize(n, 1)
         End With
         .HasTitle = True
