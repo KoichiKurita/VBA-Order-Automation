@@ -23,6 +23,8 @@ Option Explicit
 '   ・処理中はすべてのボタンを無効化し、二重実行を防ぐ
 '==========================================================
 
+Private WithEvents btnSetup As MSForms.CommandButton
+Attribute btnSetup.VB_VarHelpID = -1
 Private WithEvents btnImport As MSForms.CommandButton
 Attribute btnImport.VB_VarHelpID = -1
 Private WithEvents btnReport As MSForms.CommandButton
@@ -58,7 +60,7 @@ Private Const GAP As Single = 6
 Private Sub UserForm_Initialize()
     Dim y As Single
 
-    Me.Caption = AppTitle()
+    Me.Caption = AppTitle() & "  v" & APP_VERSION
     Me.Width = BTN_W + MARGIN * 2 + (Me.Width - Me.InsideWidth)
 
     y = 10
@@ -66,6 +68,9 @@ Private Sub UserForm_Initialize()
     y = y + 26
     Set lblUser = AddLabel("lblUser", "", y, 9, False, 16)
     y = y + 24
+
+    ' 初期設定（配布用ブックを最初に開いた人が実行し、管理者になる。設定済みなら押せない）
+    Set btnSetup = AddButton("btnSetup", "初期設定（最初に1回だけ）", y): y = y + BTN_H + GAP + 8
 
     AddLabel "lblSecBiz", "業務", y, 9, True, 16
     y = y + 18
@@ -99,6 +104,9 @@ End Sub
 '----------------------------------------------------------
 ' ボタン
 '----------------------------------------------------------
+Private Sub btnSetup_Click()
+    RunAction "SetupSecurity", "初期設定"
+End Sub
 Private Sub btnImport_Click()
     RunAction "ImportOrdersCsv", "CSV取込"
 End Sub
@@ -174,9 +182,11 @@ Private Sub RefreshState()
     btnVerify.enabled = isAdmin
     btnOpenLog.enabled = isAdmin
     btnClose.enabled = Not mBusy
+    btnSetup.enabled = Not IsSecuritySetUp() And Not mBusy
+    btnSetup.Caption = IIf(IsSecuritySetUp(), "初期設定（設定済み）", "初期設定（最初に1回だけ）")
 
     If Not IsSecuritySetUp() Then
-        lblStatus.Caption = "セキュリティが未設定です。管理者が SetupSecurity を実行してください。"
+        lblStatus.Caption = "初期設定がまだです。「初期設定」を押すと、あなたが管理者として登録されます。"
     ElseIf role = roleNone Then
         lblStatus.Caption = "ユーザー登録がありません。管理者に登録を依頼してください。"
     End If
@@ -214,5 +224,4 @@ Private Function AddLabel(ByVal ctlName As String, ByVal captionText As String, 
     End With
     Set AddLabel = l
 End Function
-
 
